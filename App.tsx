@@ -7,8 +7,11 @@
  */
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import type {Node} from 'react';
 import {
+  Button,
+  NativeEventEmitter,
+  NativeModules,
+  PermissionsAndroid,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -16,29 +19,19 @@ import {
   Text,
   useColorScheme,
   View,
-  NativeEventEmitter,
-  NativeModules,
-  PermissionsAndroid,
-  Button,
 } from 'react-native';
 
-import BLEManager from 'react-native-ble-manager/BleManager';
+import BLEManager from 'react-native-ble-manager';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
 
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 
-const App: () => Node = () => {
+const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
-  const [discoveredPeripheral, setDiscoveredPeripheral] = useState([]);
-  const stateRef = useRef();
+  const [discoveredPeripheral, setDiscoveredPeripheral] = useState<any[]>([]);
+  const stateRef = useRef<any[]>();
 
   stateRef.current = discoveredPeripheral;
 
@@ -47,24 +40,24 @@ const App: () => Node = () => {
   };
 
   const handleDiscoveredPeripheral = useCallback(e => {
-    if (!stateRef.current.some(peripheral => peripheral.id === e.id)) {
+    if (!stateRef.current?.some(peripheral => peripheral.id === e.id)) {
       setDiscoveredPeripheral(prev => [...prev, e]);
     }
   }, []);
 
   const requestLocationPermission = async () => {
     try {
-      const granted = await PermissionsAndroid.requestMultiple(
-        [
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        ],
-        {title: 'SLT', message: 'SLT access to your location'},
-      );
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
 
       console.log(granted);
 
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+      if (
+        granted['android.permission.ACCESS_COARSE_LOCATION'] ===
+        PermissionsAndroid.RESULTS.GRANTED
+      ) {
         console.log('granted');
       } else {
         console.log('not granted');
@@ -113,7 +106,10 @@ const App: () => Node = () => {
           <Button title={'Scan'} onPress={scan} />
           {discoveredPeripheral.map((peripheral, index) => (
             <View style={styles.device} key={index}>
-              <Text style={styles.deviceTitle}>{`${peripheral.id}, ${peripheral.name}\n`}</Text>
+              <Text
+                style={
+                  styles.deviceTitle
+                }>{`${peripheral.id}, ${peripheral.name}\n`}</Text>
             </View>
           ))}
         </View>
