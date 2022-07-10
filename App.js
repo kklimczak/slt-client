@@ -16,7 +16,12 @@ import {
   Text,
   useColorScheme,
   View,
+  NativeEventEmitter,
+  NativeModules,
+  PermissionsAndroid,
 } from 'react-native';
+
+import BLEManager from 'react-native-ble-manager/BleManager';
 
 import {
   Colors,
@@ -25,6 +30,9 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
+
+const BleManagerModule = NativeModules.BleManager;
+const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 
 const Section = ({children, title}): Node => {
   const isDarkMode = useColorScheme() === 'dark';
@@ -59,6 +67,46 @@ const App: () => Node = () => {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
+  bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', e => {
+    console.log(e);
+  });
+
+  const requestLocationPermission = async () => {
+    try {
+      const granted = await PermissionsAndroid.requestMultiple(
+        [
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ],
+        {title: 'SLT', message: 'SLT access to your location'},
+      );
+
+      console.log(granted);
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('granted');
+      } else {
+        console.log('not granted');
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  requestLocationPermission().then(() => {
+    BLEManager.start().then(() => {
+      console.log('Module initialized');
+
+      BLEManager.enableBluetooth().then(() => console.log('bluetooth enabled'));
+
+      BLEManager.scan(['58304f18-ffd1-11ec-b939-0242ac120002'], 3, true).then(
+        () => {
+          console.log('scan');
+        },
+      );
+    });
+  });
+
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
@@ -70,20 +118,7 @@ const App: () => Node = () => {
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.js</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+          <Section title="Step One"></Section>
         </View>
       </ScrollView>
     </SafeAreaView>
