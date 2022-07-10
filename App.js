@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import type {Node} from 'react';
 import {
   SafeAreaView,
@@ -19,6 +19,7 @@ import {
   NativeEventEmitter,
   NativeModules,
   PermissionsAndroid,
+  Button,
 } from 'react-native';
 
 import BLEManager from 'react-native-ble-manager/BleManager';
@@ -34,42 +35,22 @@ import {
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 
-const Section = ({children, title}): Node => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
-
 const App: () => Node = () => {
   const isDarkMode = useColorScheme() === 'dark';
+  const [discoveredPeripheral, setDiscoveredPeripheral] = useState([]);
+  const stateRef = useRef();
+
+  stateRef.current = discoveredPeripheral;
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
-  bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', e => {
-    console.log(e);
-  });
+  const handleDiscoveredPeripheral = useCallback(e => {
+    if (!stateRef.current.some(peripheral => peripheral.id === e.id)) {
+      setDiscoveredPeripheral(prev => [...prev, e]);
+    }
+  }, []);
 
   const requestLocationPermission = async () => {
     try {
@@ -93,19 +74,31 @@ const App: () => Node = () => {
     }
   };
 
-  requestLocationPermission().then(() => {
-    BLEManager.start().then(() => {
-      console.log('Module initialized');
+  const scan = () => {
+    setDiscoveredPeripheral([]);
+    BLEManager.scan(['58304f18-ffd1-11ec-b939-0242ac120002'], 3, false)
+      .then(() => {
+        console.log('scan');
+      })
+      .catch(e => console.log(e));
+  };
 
-      BLEManager.enableBluetooth().then(() => console.log('bluetooth enabled'));
+  useEffect(() => {
+    BLEManager.start({showAlert: false});
 
-      BLEManager.scan(['58304f18-ffd1-11ec-b939-0242ac120002'], 3, true).then(
-        () => {
-          console.log('scan');
-        },
+    bleManagerEmitter.addListener(
+      'BleManagerDiscoverPeripheral',
+      handleDiscoveredPeripheral,
+    );
+
+    requestLocationPermission();
+
+    return () =>
+      bleManagerEmitter.removeListener(
+        'BleManagerDiscoverPeripheral',
+        handleDiscoveredPeripheral,
       );
-    });
-  });
+  }, []);
 
   return (
     <SafeAreaView style={backgroundStyle}>
@@ -113,12 +106,16 @@ const App: () => Node = () => {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
-        <Header />
         <View
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One"></Section>
+          <Button title={'Scan'} onPress={scan} />
+          {discoveredPeripheral.map((peripheral, index) => (
+            <View style={styles.device} key={index}>
+              <Text style={styles.deviceTitle}>{`${peripheral.id}, ${peripheral.name}\n`}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -126,21 +123,14 @@ const App: () => Node = () => {
 };
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  device: {
+    padding: 12,
+    backgroundColor: '#ddd',
+    margin: 12,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  deviceTitle: {
+    margin: 0,
+    color: 'black',
   },
 });
 
